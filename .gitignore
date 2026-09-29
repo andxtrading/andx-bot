@@ -1,0 +1,24 @@
+# ── NEVER COMMIT THESE ──────────────────────────────────────────
+# Real API keys — committing this leaks live trading + Anthropic keys
+secrets.json
+.env
+
+# Per-user runtime state (not code — each install makes its own)
+config.json
+positions.json
+paper_state.json
+day_state.json
+memory.json
+bot.db
+bot_backup_*.db
+*.db
+server.log
+nohup.out
+
+# Python / OS cruft
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+strategies_original.py
