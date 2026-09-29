@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANDX Quant Trading Competition</title>
+<style>
+  :root{
+    --bg:#07080c; --panel:#12141c; --ink:#ffffff; --ink2:#b9bccb;
+    --muted:#7f8497; --line:rgba(255,255,255,.10); --accent:#3987e5;
+    --accent2:#6fa8ff; --good:#28c76f;
+  }
+  *{box-sizing:border-box;margin:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--ink);
+    font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif;overflow-x:hidden}
+  #bg{position:fixed;inset:0;z-index:0;opacity:.55}
+  .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(1100px 700px at 50% 30%,transparent,rgba(7,8,12,.75) 78%)}
+  .wrap{position:relative;z-index:2}
+
+  /* ---------- welcome screen ---------- */
+  .hero{min-height:auto;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:64px 20px 28px}
+  .brand{display:flex;align-items:center;gap:11px;margin-bottom:34px}
+  .brand .mark{width:38px;height:38px;border-radius:10px;
+    background:linear-gradient(135deg,var(--accent),#9cc3ff);
+    display:grid;place-items:center;font-weight:800;color:#06121f;font-size:20px;
+    box-shadow:0 6px 24px -6px var(--accent)}
+  .brand b{font-size:16px;font-weight:650;letter-spacing:.04em}
+  .eyebrow{font-size:13px;font-weight:700;letter-spacing:.32em;text-transform:uppercase;
+    color:var(--accent2);margin-bottom:20px}
+  h1{font-size:clamp(38px,7vw,74px);line-height:1.02;font-weight:800;letter-spacing:-.02em;
+    max-width:14ch;text-wrap:balance}
+  h1 .g{background:linear-gradient(115deg,#9cc3ff,var(--accent));-webkit-background-clip:text;
+    background-clip:text;color:transparent}
+  .tag{font-size:clamp(16px,2.2vw,20px);color:var(--ink2);max-width:46ch;margin:24px auto 0}
+  .cta{display:inline-flex;align-items:center;gap:11px;margin-top:40px;cursor:pointer;
+    background:linear-gradient(135deg,var(--accent),#2f6fd0);color:#fff;border:none;
+    font-size:18px;font-weight:700;padding:18px 40px;border-radius:14px;
+    box-shadow:0 10px 40px -10px var(--accent);transition:transform .14s ease,box-shadow .14s ease}
+  .cta:hover{transform:translateY(-3px);box-shadow:0 18px 52px -12px var(--accent)}
+  .cta:active{transform:translateY(-1px)}
+  .cta svg{width:20px;height:20px}
+  .scrollhint{margin-top:26px;font-size:12.5px;color:var(--muted);letter-spacing:.04em}
+
+  /* ---------- bot section (revealed on Enter) ---------- */
+  #enter{max-width:680px;margin:0 auto;padding:20px 20px 80px}
+  #enter.show{opacity:1;transform:none}
+  .sec-title{font-size:12px;text-transform:uppercase;letter-spacing:.16em;color:var(--accent2);
+    font-weight:700;margin-bottom:8px}
+  h2{font-size:26px;font-weight:750;letter-spacing:-.01em;margin-bottom:8px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;
+    padding:24px 26px;margin-top:20px}
+  .card p.lede{font-size:15px;color:var(--ink2);text-align:left}
+  .cmd{background:#000;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+    overflow-x:auto;margin-top:10px}
+  .cmd code{color:#7db4ff;font:13px/1.5 ui-monospace,Menlo,monospace;white-space:pre;user-select:all}
+  .os{font-weight:700;color:var(--ink);margin-top:18px;margin-bottom:2px;font-size:15px}
+  .os:first-child{margin-top:0}
+  .hint{font-size:13px;color:var(--muted);margin-top:12px;line-height:1.6}
+  .step{display:grid;grid-template-columns:30px 1fr;gap:14px;align-items:start;
+    padding:12px 0;border-top:1px solid var(--line)}
+  .step:first-of-type{border-top:none;padding-top:0}
+  .num{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:#0a0c12;
+    border:1px solid var(--line);font-weight:700;color:var(--accent);font-size:14px}
+  .step b{font-weight:650} .step p{font-size:13.5px;color:var(--ink2);margin-top:2px}
+  code{background:#0a0c12;border:1px solid var(--line);border-radius:6px;padding:2px 7px;
+    font:12.5px/1 ui-monospace,Menlo,monospace}
+  details{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--ink2)}
+  details p{font-size:13.5px;color:var(--ink2);margin-top:8px}
+  .safe{margin-top:20px;font-size:13.5px;color:var(--ink2);line-height:1.7}
+  .safe b{color:var(--good)}
+  .foot{margin-top:28px;font-size:12.5px;color:var(--muted);text-align:center;line-height:1.6}
+  .foot a{color:var(--ink2)}
+  @media(prefers-reduced-motion:reduce){#bg{display:none}#enter{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="vignette"></div>
+<div class="wrap">
+
+  <!-- Welcome -->
+  <header class="hero">
+    <div class="eyebrow">Fall 2026 · Presented by ANDX</div>
+    <h1>The ANDX <span class="g">Quant Trading</span> Competition</h1>
+    <p class="tag">A trading bot provided for students by ANDX. It's a base-level bot to start from — you're encouraged to move the settings around and edit the strategies to make it your own.</p>
+    <div class="scrollhint">Free to enter · runs on your computer · starts in risk-free practice mode</div>
+    <a href="tutorial.html" style="margin-top:22px;display:inline-block;color:var(--accent2);font-size:14px;text-decoration:none;border-bottom:1px solid rgba(111,168,255,.35);padding-bottom:2px">New here? Read the full step-by-step tutorial →</a>
+  </header>
+
+  <!-- Get the bot -->
+  <section id="enter">
+    <div class="sec-title">Step 1 — Get your bot</div>
+    <h2>Install it in one line</h2>
+
+    <div class="card">
+      <div class="os">On a Mac</div>
+      <p class="lede">Open <b>Terminal</b> (⌘+Space, type <b>Terminal</b>, Enter), paste this, press Enter:</p>
+      <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/andxtrading/andx-trading-bot/main/install.sh | bash</code></div>
+      <div class="os">On Windows</div>
+      <p class="lede">Open <b>PowerShell</b> (Start → type <b>PowerShell</b> → Enter), paste this, press Enter:</p>
+      <div class="cmd"><code>irm https://raw.githubusercontent.com/andxtrading/andx-trading-bot/main/install.ps1 | iex</code></div>
+      <p class="hint">Each command downloads the bot, sets it up, and opens it automatically. If Python isn't installed, it tells you where to get it. (Windows: use PowerShell, not Command Prompt.)</p>
+
+      <details>
+        <summary>Prefer to download and double-click instead?</summary>
+        <p><b><a href="https://github.com/andxtrading/andx-trading-bot/archive/refs/heads/main.zip" style="color:var(--accent2)">Download the .zip here</a></b>, unzip it, then:</p>
+        <div class="step"><div class="num">1</div><div><b>Mac:</b><p>Right-click <code>Start Bot.command</code> → Open → Open. If you only get "Apple could not verify" with Done/Move to Trash: click Done, then  → System Settings → Privacy &amp; Security → scroll down → "Open Anyway."</p></div></div>
+        <div class="step"><div class="num">2</div><div><b>Windows:</b><p>Double-click <code>Start Bot (Windows).bat</code>. If a blue box appears, click "More info → Run anyway."</p></div></div>
+      </details>
+    </div>
+
+    <div class="sec-title" style="margin-top:34px">Step 2 — Compete</div>
+    <h2>Make the bot your own</h2>
+    <div class="card">
+      <div class="step"><div class="num">1</div><div><b>Press "Start bot."</b><p>The dashboard opens in your browser on practice money — no account or keys needed.</p></div></div>
+      <div class="step"><div class="num">2</div><div><b>Open the "Edit Strategy" tab.</b><p>Change the bot's code, hit Save &amp; Apply, and it runs your strategy. Broken code is refused, so you can't break it.</p></div></div>
+      <div class="step"><div class="num">3</div><div><b>Add your name and climb.</b><p>Everyone starts from the same bot — the better your strategy, the higher you place.</p></div></div>
+      <p class="safe"><b>Safe by default.</b> It starts in paper mode — simulated money, real prices. Add your own ANDX keys only when you choose to trade live; your keys stay on your computer and are never uploaded.</p>
+    </div>
+
+    <p class="foot">Each competitor runs their own copy with their own keys — nothing is shared. Crypto trading carries real risk; start in practice mode. · <a href="https://github.com/andxtrading/andx-trading-bot">View the code on GitHub</a></p>
+  </section>
+</div>
+
+<script>
+  // ambient background: faint drifting equity-curve lines (on-theme, subtle)
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!reduce) {
+    var c = document.getElementById('bg'), x = c.getContext('2d'), W, H, lines;
+    function rnd(a,b){return a+Math.random()*(b-a);}
+    function build(){
+      W = c.width = innerWidth; H = c.height = innerHeight;
+      lines = [];
+      var n = Math.max(3, Math.round(W/380));
+      for (var i=0;i<n;i++){
+        var pts=[], y=rnd(H*0.25,H*0.75); pts.push(y);
+        for (var k=1;k<60;k++){ y += rnd(-H*0.05,H*0.05); y=Math.max(H*0.1,Math.min(H*0.9,y)); pts.push(y); }
+        lines.push({pts:pts, off:rnd(0,1000), sp:rnd(0.15,0.4), hue:rnd(205,225)});
+      }
+    }
+    function draw(t){
+      x.clearRect(0,0,W,H);
+      for (var i=0;i<lines.length;i++){
+        var L=lines[i], seg=W/ (L.pts.length-2), shift=(t*L.sp/16+L.off)%seg;
+        x.beginPath();
+        for (var k=0;k<L.pts.length-1;k++){
+          var px=k*seg-shift, py=L.pts[k];
+          if(k===0)x.moveTo(px,py); else x.lineTo(px,py);
+        }
+        x.strokeStyle='hsla('+L.hue+',70%,60%,0.16)';
+        x.lineWidth=1.5; x.stroke();
+      }
+      requestAnimationFrame(draw);
+    }
+    build(); requestAnimationFrame(draw);
+    addEventListener('resize', build);
+  }
+</script>
+</body>
+</html>
