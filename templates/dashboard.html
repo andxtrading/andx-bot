@@ -1,0 +1,853 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ANDX Trading Bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ANDX identity: IBM Plex typography + a violet quant palette. Numbers are
+     mono (terminal feel), labels are mono-uppercase, text is Plex Sans.
+     Light is the base; dark overrides; the theme button pins a choice. */
+  :root {
+    color-scheme: light;
+    --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --page: #f2f2f6;
+    --surface: #ffffff;
+    --ink: #16151d;
+    --ink-2: #57545f;
+    --muted: #8b8894;
+    --grid: #e6e5ec;
+    --baseline: #c6c4d0;
+    --border: rgba(22,21,29,0.11);
+    --series-1: #5a2fe0;      /* signature violet */
+    --good: #0a7a48;
+    --warn: #8a5f00;
+    --warn-bg: rgba(233,168,20,.14);
+    --warn-bd: rgba(138,95,0,.35);
+    --critical: #c2295a;
+    --crit-bg: rgba(194,41,90,.09);
+    --crit-ink: #a51f4c;
+    --accent-ink: #ffffff;
+    --shadow: 0 1px 2px rgba(22,21,29,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0a0910;
+      --surface: #14131c;
+      --ink: #f4f3fa;
+      --ink-2: #b6b3c6;
+      --muted: #817e93;
+      --grid: #23212f;
+      --baseline: #34314a;
+      --border: rgba(255,255,255,0.09);
+      --series-1: #9d84ff;
+      --good: #1fc07a;
+      --warn: #f2b52c;
+      --warn-bg: rgba(242,181,44,.12);
+      --warn-bd: rgba(242,181,44,.4);
+      --critical: #ff4d80;
+      --crit-bg: rgba(255,77,128,.12);
+      --crit-ink: #ff86a8;
+      --accent-ink: #ffffff;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0a0910;
+    --surface: #14131c;
+    --ink: #f4f3fa;
+    --ink-2: #b6b3c6;
+    --muted: #817e93;
+    --grid: #23212f;
+    --baseline: #34314a;
+    --border: rgba(255,255,255,0.09);
+    --series-1: #9d84ff;
+    --good: #1fc07a;
+    --warn: #f2b52c;
+    --warn-bg: rgba(242,181,44,.12);
+    --warn-bd: rgba(242,181,44,.4);
+    --critical: #ff4d80;
+    --crit-bg: rgba(255,77,128,.12);
+    --crit-ink: #ff86a8;
+    --accent-ink: #ffffff;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font: 14px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 20px 40px; }
+  h1 { font-family: var(--mono); font-size: 15px; font-weight: 600; white-space: nowrap; letter-spacing: .14em; text-transform: uppercase; }
+  h1 .dot { color: var(--series-1); }
+  h2 { font-family: var(--mono); font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: .14em; margin-bottom: 12px; }
+  .topbar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 14px 20px; margin: 0 -20px 16px;
+    position: sticky; top: 0; z-index: 20;
+    background: var(--page); border-bottom: 1px solid var(--border);
+  }
+  .badge { font-family: var(--mono); font-size: 10.5px; font-weight: 600; letter-spacing: .12em; padding: 3px 9px; border-radius: 5px; border: 1px solid var(--border); color: var(--ink-2); }
+  .badge.live { color: #fff; background: var(--critical); border-color: transparent; }
+  .badge.testnet { color: #14130f; background: #fab219; border-color: transparent; }
+  .iconbtn {
+    width: 36px; padding: 7px 0; text-align: center; font-size: 15px;
+    flex: none; line-height: 1;
+  }
+  .tabs {
+    display: flex; gap: 4px; margin-bottom: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 4px; width: fit-content;
+  }
+  .tab {
+    border: none; background: none; color: var(--ink-2);
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    text-transform: uppercase; letter-spacing: .1em;
+    padding: 8px 16px; border-radius: 6px; cursor: pointer; white-space: nowrap;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { background: var(--series-1); color: var(--accent-ink); }
+  .tabpane[hidden] { display: none; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
+  .dot.on { background: var(--good); }
+  .spacer { flex: 1; }
+  button {
+    font: inherit; font-weight: 600; color: var(--ink);
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 16px; cursor: pointer;
+    white-space: nowrap;
+  }
+  button:hover { border-color: var(--baseline); }
+  button.primary { background: var(--series-1); border-color: transparent; color: var(--accent-ink); }
+  button.danger  { background: var(--critical); border-color: transparent; color: #fff; }
+  button.small { padding: 3px 10px; font-size: 12px; font-weight: 500; }
+  button:disabled { opacity: .45; cursor: default; }
+  /* mode switches — real toggles, labels never wrap or truncate */
+  .switches { display: flex; gap: 10px; flex: none; }
+  .switch {
+    display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 14px; user-select: none;
+    white-space: nowrap; flex: none;
+  }
+  .switch:hover { border-color: var(--baseline); }
+  .switch .sw-name { font-size: 13.5px; font-weight: 650; color: var(--ink); }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .sw-track {
+    width: 40px; height: 22px; border-radius: 22px; flex: none;
+    background: var(--baseline); position: relative;
+    transition: background .15s ease;
+  }
+  .sw-knob {
+    position: absolute; top: 2px; left: 2px; width: 18px; height: 18px;
+    border-radius: 50%; background: #fff; transition: transform .15s ease;
+  }
+  .switch input:checked + .sw-track { background: var(--sw-on, var(--series-1)); }
+  .switch input:checked + .sw-track .sw-knob { transform: translateX(18px); }
+  .switch input:focus-visible + .sw-track { outline: 2px solid var(--series-1); outline-offset: 2px; }
+  .sw-state { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--muted); width: 26px; }
+  .switch input:checked ~ .sw-state { color: var(--sw-on, var(--series-1)); }
+  .switch.warn-accent { --sw-on: var(--warn); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+  @media (max-width: 980px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 14px; box-shadow: var(--shadow); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .tile .k { font-family: var(--mono); font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; }
+  .tile .v { font-family: var(--mono); font-size: 23px; font-weight: 600; margin-top: 4px; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+  .tile .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+  .up { color: var(--good); } .down { color: var(--critical); }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .12em; text-align: left; font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--baseline); }
+  td { font-family: var(--mono); padding: 7px 8px; border-bottom: 1px solid var(--grid); font-size: 12.5px; }
+  tr:last-child td { border-bottom: none; }
+  .side-long  { color: var(--good); font-weight: 600; }
+  .side-short { color: var(--critical); font-weight: 600; }
+  .empty { color: var(--muted); padding: 14px 8px; font-size: 13px; }
+
+  label { display: block; font-size: 12px; color: var(--ink-2); margin: 10px 0 3px; }
+  input, select {
+    width: 100%; font: inherit; color: var(--ink);
+    background: var(--page); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px;
+  }
+  input:focus, select:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+  .keystatus { font-size: 12.5px; margin-top: 8px; }
+  .keystatus.ok { color: var(--good); } .keystatus.err { color: var(--critical); }
+  .keystatus.neutral { color: var(--muted); }
+
+  .banner { border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; display: none; }
+  .banner.warn { display: block; background: var(--warn-bg); border: 1px solid var(--warn-bd); color: var(--warn); }
+  .banner.err  { display: block; background: var(--crit-bg);  border: 1px solid var(--crit-bg); color: var(--crit-ink); }
+
+  #chartwrap { position: relative; }
+  #tooltip {
+    position: absolute; pointer-events: none; display: none;
+    background: var(--page); border: 1px solid var(--border); border-radius: 8px;
+    padding: 6px 10px; font-size: 12px; white-space: nowrap; z-index: 5;
+  }
+  #tooltip .t { color: var(--muted); }
+  .logs { font: 12px/1.7 ui-monospace, Menlo, monospace; max-height: 260px; overflow-y: auto; }
+  .logs .warn { color: var(--warn); } .logs .error { color: var(--critical); }
+  .logs .ts { color: var(--muted); margin-right: 8px; }
+  .signals { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .sig { font-family: var(--mono); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--ink-2); }
+  .sig b { color: var(--ink); font-weight: 600; }
+  .sig.long { border-color: rgba(12,163,12,.45); }  .sig.long b { color: var(--good); }
+  .sig.short { border-color: rgba(208,59,59,.5); }  .sig.short b { color: var(--critical); }
+  .sig.flat b { color: var(--muted); font-weight: 500; }
+  #codeArea {
+    width: 100%; height: 60vh; min-height: 340px; resize: vertical;
+    font: 12.5px/1.55 ui-monospace, Menlo, monospace;
+    color: var(--ink); background: var(--page);
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px;
+    tab-size: 4; white-space: pre; overflow: auto;
+  }
+  #codeArea:focus { outline: 2px solid var(--series-1); outline-offset: -1px; }
+  .guide p { font-size: 13.5px; color: var(--ink-2); margin-bottom: 8px; }
+  .guide .g-row { display: grid; grid-template-columns: 168px 1fr; gap: 14px; padding: 10px 0; border-top: 1px solid var(--grid); font-size: 13.5px; }
+  .guide .g-row:first-of-type { border-top: none; }
+  .guide .g-row b { color: var(--ink); font-weight: 650; }
+  .guide .g-row span { color: var(--ink-2); }
+  .guide .g-row .k { color: var(--series-1); font-weight: 650; }
+  @media (max-width: 560px) { .guide .g-row { grid-template-columns: 1fr; gap: 2px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="topbar">
+  <h1>ANDX <span class="dot">·</span> Trading Bot</h1>
+  <span id="modeBadge" class="badge">PAPER</span>
+  <span><span id="statusDot" class="dot"></span> <span id="statusTxt" style="color:var(--ink-2)">stopped</span></span>
+  <span id="dataSource" style="font-size:12px;color:var(--muted)"></span>
+  <div class="spacer"></div>
+  <div class="switches">
+    <label class="switch" title="ON: trade ANDX derivatives — real longs AND shorts with leverage, stops enforced by the exchange. OFF: trade spot — buy coins, sell back to USDT, long/flat only. Switching closes all open positions first.">
+      <span class="sw-name">⚡ Derivatives</span>
+      <input type="checkbox" id="derivToggle">
+      <span class="sw-track"><span class="sw-knob"></span></span>
+      <span class="sw-state" id="derivState">OFF</span>
+    </label>
+    <label class="switch warn-accent" title="Profit-focused conservative mode: 1-hour candles, only strong signals, half the risk per trade, wider trailing stops so winners run, 5% daily-loss circuit breaker, max 3 positions. Flip anytime — the bot restarts itself.">
+      <span class="sw-name">🛡️ Conservative</span>
+      <input type="checkbox" id="slowToggle">
+      <span class="sw-track"><span class="sw-knob"></span></span>
+      <span class="sw-state" id="slowState">OFF</span>
+    </label>
+  </div>
+  <button id="btnStart" class="primary">Start bot</button>
+  <button id="btnStop" style="display:none">Stop</button>
+  <button id="btnFlatten" class="danger" style="display:none">Stop &amp; close all</button>
+  <button id="btnTheme" class="iconbtn" title="Switch between light and dark">🌓</button>
+</div>
+
+<div id="killBanner" class="banner"></div>
+<div id="errBanner" class="banner"></div>
+
+<nav class="tabs" aria-label="Dashboard sections">
+  <button class="tab active" data-tab="overview">Overview</button>
+  <button class="tab" data-tab="guide">Guide</button>
+  <button class="tab" data-tab="activity">Activity</button>
+  <button class="tab" data-tab="code">Edit Strategy</button>
+  <button class="tab" data-tab="settings">Settings</button>
+</nav>
+
+<div class="tiles">
+  <div class="tile"><div class="k">Equity</div><div class="v" id="tEquity">—</div><div class="s" id="tMode2"></div></div>
+  <div class="tile"><div class="k">Total P&amp;L</div><div class="v" id="tPnl">—</div><div class="s" id="tPnlPct"></div></div>
+  <div class="tile"><div class="k">Win rate</div><div class="v" id="tWin">—</div><div class="s" id="tTrades"></div></div>
+  <div class="tile"><div class="k">Open positions</div><div class="v" id="tOpen">0</div><div class="s" id="tUnreal"></div></div>
+  <div class="tile" id="volTile" style="display:none"><div class="k">Volume traded</div><div class="v" id="tVol">—</div><div class="s" id="tVolTarget"></div></div>
+</div>
+
+<section class="tabpane" id="tab-overview">
+    <div class="card">
+      <h2>Equity curve</h2>
+      <div id="chartwrap">
+        <svg id="chart" width="100%" height="240" role="img" aria-label="Equity over time"></svg>
+        <div id="tooltip"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Signals</h2>
+      <div class="signals" id="signals"><span class="empty">Bot not running.</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Open positions</h2>
+      <table id="posTable">
+        <thead><tr><th>Symbol</th><th>Side</th><th>Qty</th><th>Entry</th><th>Mark</th><th>Stop</th><th>Unrealized</th><th>Strategy</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="posEmpty">No open positions.</div>
+    </div>
+</section>
+
+<section class="tabpane" id="tab-guide" hidden>
+  <div class="card guide">
+    <h2>What this bot is</h2>
+    <p>A starter crypto trading bot provided by ANDX. It comes with proven default strategies, but it's a <b>base to build on</b> — you're meant to change the settings and edit the code to make it trade your way. It runs on your own computer and starts on <b>practice money</b> so you can experiment with zero risk.</p>
+  </div>
+
+  <div class="card guide">
+    <h2>Top bar</h2>
+    <div class="g-row"><b>Start bot</b><span>Turns the bot on. It begins reading the market and trading. When running, this button becomes <b>Stop</b>.</span></div>
+    <div class="g-row"><b>Stop</b><span>Pauses the bot. It stops making new trades but keeps any positions it's holding.</span></div>
+    <div class="g-row"><b>Stop &amp; close all</b><span>Stops the bot <i>and</i> sells everything at market — the emergency "get me out" button.</span></div>
+    <div class="g-row"><b>⚡ Derivatives</b><span>ON: trade long <i>and</i> short with leverage (bet up or down). OFF: spot only — buy coins, sell back to cash. Switching closes open positions first.</span></div>
+    <div class="g-row"><b>🛡️ Conservative</b><span>Calmer, profit-focused mode: fewer, stronger trades, smaller risk each, wider stops, a daily-loss circuit breaker.</span></div>
+    <div class="g-row"><b>🌓</b><span>Switch between light and dark theme.</span></div>
+  </div>
+
+  <div class="card guide">
+    <h2>The numbers up top (tiles)</h2>
+    <div class="g-row"><b>Equity</b><span>Your total account value right now (cash + open positions).</span></div>
+    <div class="g-row"><b>Total P&amp;L</b><span>Profit or loss across all your closed trades.</span></div>
+    <div class="g-row"><b>Win rate</b><span>Percent of closed trades that made money.</span></div>
+    <div class="g-row"><b>Open positions</b><span>How many coins you're currently holding, and their live unrealized profit/loss.</span></div>
+  </div>
+
+  <div class="card guide">
+    <h2>Tabs</h2>
+    <div class="g-row"><b>Overview</b><span>Your equity curve, the current buy/sell <b>signals</b> per coin, and your open positions (each with a <b>Close</b> button to sell it now).</span></div>
+    <div class="g-row"><b>Activity</b><span>Your full trade history (entries, exits, profit) and a live log of everything the bot does.</span></div>
+    <div class="g-row"><b>Edit Strategy</b><span>The bot's actual code. Change it, hit <b>Save &amp; Apply</b>, and your bot runs your version. Broken code is refused, and <b>Restore original</b> undoes it.</span></div>
+    <div class="g-row"><b>Settings</b><span>Your name, trading mode, which coins, and all the risk controls (below).</span></div>
+  </div>
+
+  <div class="card guide">
+    <h2>Settings explained</h2>
+    <div class="g-row"><b>Trading mode</b><span><b>Paper</b> = practice money (safe, start here). <b>Live</b> = real money with your own keys.</span></div>
+    <div class="g-row"><b>Strategy</b><span>The playbook. <b>Auto</b> picks trend-following or mean-reversion based on the market; the others force one style.</span></div>
+    <div class="g-row"><b>Symbols</b><span>Which coins to trade. <b>ALL</b> = every ANDX pair, or list your own.</span></div>
+    <div class="g-row"><b>Timeframe</b><span>How zoomed-in the bot reads charts. 15m = fast &amp; active; 1d = slow &amp; patient.</span></div>
+    <div class="g-row"><b>Reset practice account</b><span>Starts your practice balance fresh.</span></div>
+  </div>
+
+  <div class="card guide">
+    <h2>Risk controls (your safety limits)</h2>
+    <div class="g-row"><b>Risk per trade %</b><span>Most of the account one losing trade can cost. 1% = a loss can't hurt more than 1%.</span></div>
+    <div class="g-row"><b>ATR stop ×</b><span>Where the auto "get-out" price sits. ATR is a coin's normal daily wiggle; this places the stop that many wiggles away, so normal noise doesn't kick you out but a real move does.</span></div>
+    <div class="g-row"><b>Max leverage</b><span>How much borrowed money it may use (derivatives). Multiplies wins <i>and</i> losses.</span></div>
+    <div class="g-row"><b>Max positions</b><span>Most coins it can hold at once.</span></div>
+    <div class="g-row"><b>Max position % of equity</b><span>Most it can put into any single coin.</span></div>
+    <div class="g-row"><b>Daily loss kill switch %</b><span>Lose this much in one day and the bot sells everything and stops until tomorrow.</span></div>
+  </div>
+
+  <div class="card guide">
+    <h2>Going live &amp; safety</h2>
+    <p><b>Start in paper mode.</b> Learn and test with practice money first. When you're ready for real money: create API keys in <i>your own</i> ANDX account (<b>trade permission only, never withdrawals</b>), paste them in Settings → Save &amp; test keys, switch Trading mode to Live, and confirm.</p>
+    <p>Your keys are stored only on your computer and are never uploaded. Crypto trading — especially leveraged and short — can lose money fast. Start small.</p>
+  </div>
+</section>
+
+<section class="tabpane" id="tab-activity" hidden>
+    <div class="card">
+      <h2>Trade history</h2>
+      <table id="tradeTable">
+        <thead><tr><th>Time</th><th>Symbol</th><th>Side</th><th>Entry</th><th>Exit</th><th>P&amp;L</th><th>Strategy</th><th>Reason</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="empty" id="tradeEmpty">No closed trades yet.</div>
+    </div>
+
+    <div class="card">
+      <h2>Activity log</h2>
+      <div class="logs" id="logs"></div>
+    </div>
+</section>
+
+<section class="tabpane" id="tab-settings" hidden>
+  <div class="grid2">
+  <div>
+    <div class="card">
+      <h2>Exchange &amp; API keys</h2>
+      <label for="exchange">Exchange</label>
+      <select id="exchange"></select>
+      <div class="hint" id="exchangeNote">The bot trades <b>ANDX derivatives</b> — real longs <b>and shorts</b> with leverage (set by the "Max leverage" risk field), and stop-loss/take-profit enforced by the exchange itself. Candles, quotes, orders, and balances all come from ANDX's API; only the key and secret are needed.</div>
+      <label for="apiKey">API key</label>
+      <input id="apiKey" type="password" autocomplete="off" placeholder="paste API key">
+      <label for="apiSecret">API secret</label>
+      <input id="apiSecret" type="password" autocomplete="off" placeholder="paste API secret">
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button id="btnSaveKeys" class="primary">Save &amp; test keys</button>
+        <button id="btnDeleteKeys" class="small">Remove</button>
+      </div>
+      <div class="keystatus" id="keyStatus"></div>
+      <div class="hint">Keys are stored only on this machine (<code>secrets.json</code>, owner-read-only) and never leave it except to call your exchange. Create keys with <b>trade</b> permission only — never enable withdrawals.</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <h2>Bot settings</h2>
+      <input id="studentId" type="hidden">
+      <div class="hint">Everyone starts from the same bot — you compete by <b>editing the strategy</b> (the <b>Edit Strategy</b> tab, or <code>strategies.py</code>).</div>
+      <label for="mode">Trading mode</label>
+      <select id="mode">
+        <option value="paper">Paper (simulated — no keys needed)</option>
+        <option value="live">Live (real money)</option>
+      </select>
+      <label for="strategy">Strategy</label>
+      <select id="strategy"></select>
+      <div class="hint" id="stratHint"></div>
+      <label for="symbols">Symbols — <b>ALL</b> trades every ANDX pair, or list specific ones</label>
+      <input id="symbols" placeholder="ALL   —or—   BTC/USDT, ETH/USDT, SOL/USDT">
+      <div class="row2">
+        <div>
+          <label for="timeframe">Timeframe</label>
+          <select id="timeframe">
+            <option>15m</option><option>1h</option><option>4h</option><option>1d</option>
+          </select>
+        </div>
+        <div>
+          <label for="paperBalance">Paper balance (USDT)</label>
+          <input id="paperBalance" type="number" min="100" step="100">
+        </div>
+      </div>
+      <button id="btnResetPaper" class="small" style="margin-top:12px">Reset practice account</button>
+      <div class="hint">Practice progress carries across stops and restarts. Reset (or change the starting balance) to begin fresh; trade history is kept.</div>
+    </div>
+
+    <div class="card">
+      <h2>Risk controls</h2>
+      <div class="row2">
+        <div><label>Risk per trade %</label><input id="rRisk" type="number" step="0.1" min="0.1"></div>
+        <div><label>ATR stop ×</label><input id="rStop" type="number" step="0.5" min="0.5"></div>
+        <div><label>Max leverage</label><input id="rLev" type="number" step="0.5" min="1"></div>
+        <div><label>Max positions</label><input id="rMaxPos" type="number" step="1" min="1"></div>
+        <div><label>Max position % of equity</label><input id="rMaxPct" type="number" step="5" min="1"></div>
+        <div><label>Daily loss kill switch %</label><input id="rDaily" type="number" step="0.5" min="0.5"></div>
+      </div>
+      <button id="btnSaveSettings" class="primary" style="margin-top:14px;width:100%">Save settings</button>
+      <div class="keystatus" id="settingsStatus"></div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<section class="tabpane" id="tab-code" hidden>
+  <div class="card">
+    <h2>Edit Strategy — your bot's brain</h2>
+    <p class="hint" style="margin-bottom:12px">This is <code>strategies.py</code>, where the buy/sell decisions live. Change the logic, hit <b>Save &amp; Apply</b>, and your bot runs your code. It's checked for errors first — <b>broken code is refused, so you can't brick your bot.</b> A good place to start: the numbers in <code>EMATrend</code> (fast/slow moving averages) or <code>RSIMeanReversion</code> (the RSI buy/sell levels). Test in paper mode.</p>
+    <textarea id="codeArea" spellcheck="false" placeholder="Loading your strategy code…"></textarea>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button id="btnSaveCode" class="primary">Save &amp; Apply</button>
+      <button id="btnReloadCode" class="small">Reload from file</button>
+      <button id="btnRestoreCode" class="small">Restore original</button>
+    </div>
+    <div class="keystatus" id="codeStatus"></div>
+  </div>
+</section>
+
+</div><!-- /wrap -->
+
+<script>
+const $ = id => document.getElementById(id);
+let state = null;
+let firstLoad = true;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+// theme: explicit choice pinned in localStorage; otherwise the system decides
+try {
+  const savedTheme = localStorage.getItem("andx_theme");
+  if (savedTheme) document.documentElement.dataset.theme = savedTheme;
+} catch {}
+$("btnTheme").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme
+    || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  const next = cur === "dark" ? "light" : "dark";
+  document.documentElement.dataset.theme = next;
+  try { localStorage.setItem("andx_theme", next); } catch {}
+  if (state) render();  // repaint the chart with the new palette
+});
+
+// tabs: Overview / Activity / Settings
+let codeLoaded = false;
+const setTab = name => {
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
+  document.querySelectorAll(".tabpane").forEach(p => { p.hidden = p.id !== "tab-" + name; });
+  try { localStorage.setItem("andx_tab", name); } catch {}
+  if (name === "code" && !codeLoaded) loadCode();
+};
+document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => setTab(t.dataset.tab)));
+try { const t0 = localStorage.getItem("andx_tab"); if (t0) setTab(t0); } catch {}
+
+const fmtUsd = v => v == null ? "—" : "$" + v.toLocaleString("en-US", {maximumFractionDigits: 2});
+const fmtNum = v => v == null ? "—" : (+v).toLocaleString("en-US", {maximumFractionDigits: 6});
+const fmtTime = ts => new Date(ts * 1000).toLocaleString([], {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit"});
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+async function refresh() {
+  try { state = await api("/api/state"); } catch { return; }
+  render();
+  if (firstLoad) { fillForms(); firstLoad = false; }
+}
+
+function render() {
+  const s = state;
+  const running = s.status === "running";
+  $("statusDot").className = "dot" + (running ? " on" : "");
+  $("statusTxt").textContent = s.status;
+  const badge = $("modeBadge");
+  badge.textContent = s.mode.toUpperCase();
+  badge.className = "badge " + (s.mode === "live" ? "live" : s.mode === "testnet" ? "testnet" : "");
+  $("btnStart").style.display = running ? "none" : "";
+  $("btnStop").style.display = running ? "" : "none";
+  $("btnFlatten").style.display = running ? "" : "none";
+  $("dataSource").textContent = s.data_source ? "data: " + s.data_source : "";
+
+  $("killBanner").className = "banner" + (s.kill_switch ? " warn" : "");
+  $("killBanner").textContent = s.kill_switch ? "⚠ Daily-loss kill switch tripped — trading paused until the next UTC day." : "";
+  $("errBanner").className = "banner" + (s.error ? " err" : "");
+  $("errBanner").textContent = s.error ? "Engine error: " + s.error : "";
+
+  $("tEquity").textContent = fmtUsd(s.equity);
+  $("tMode2").textContent = s.mode + " account";
+  const pnl = s.stats.total_pnl;
+  $("tPnl").textContent = (pnl >= 0 ? "+" : "") + fmtUsd(pnl).replace("$-", "-$");
+  $("tPnl").className = "v " + (pnl >= 0 ? "up" : "down");
+  $("tWin").textContent = s.stats.count ? s.stats.win_rate.toFixed(0) + "%" : "—";
+  $("tTrades").textContent = s.stats.count + " closed trades" +
+    (s.stats.today != null ? " · " + s.stats.today + " today (" + s.stats.today * 2 + " buys+sells)" : "");
+  $("tOpen").textContent = s.positions.length;
+  if (s.volume) {
+    $("volTile").style.display = "";
+    $("tVol").textContent = "$" + Math.round(s.volume.done).toLocaleString();
+    const pct = Math.min(100, s.volume.done / s.volume.target * 100);
+    $("tVolTarget").textContent = pct >= 100
+      ? "target $" + s.volume.target.toLocaleString() + " reached ✓"
+      : "target $" + s.volume.target.toLocaleString() + " · " + pct.toFixed(0) + "%";
+    $("tVolTarget").className = "s" + (pct >= 100 ? " up" : "");
+  } else {
+    $("volTile").style.display = "none";
+  }
+  const unreal = s.positions.reduce((a, p) => a + (p.unrealized || 0), 0);
+  $("tUnreal").textContent = s.positions.length ? "unrealized " + (unreal >= 0 ? "+" : "") + unreal.toFixed(2) : "";
+  $("tUnreal").className = "s " + (unreal >= 0 ? "up" : "down");
+
+  // signals
+  const sig = $("signals");
+  const entries = Object.entries(s.signals || {});
+  sig.innerHTML = entries.length
+    ? entries.map(([sym, v]) => {
+        const cls = v.startsWith("long") ? "long" : v.startsWith("short") ? "short" : "flat";
+        return `<span class="sig ${cls}">${sym.split(":")[0]} <b>${v}</b> <span style="color:var(--muted)">${s.prices[sym] ? "@ " + fmtNum(s.prices[sym]) : ""}</span></span>`;
+      }).join("")
+    : '<span class="empty">Bot not running.</span>';
+
+  // positions
+  const pb = $("posTable").querySelector("tbody");
+  pb.innerHTML = s.positions.map(p => `
+    <tr>
+      <td>${p.symbol.split(":")[0]}</td>
+      <td class="side-${p.side}">${p.side.toUpperCase()}</td>
+      <td>${fmtNum(p.qty)}</td>
+      <td>${fmtNum(p.entry)}</td>
+      <td>${fmtNum(p.mark)}</td>
+      <td>${fmtNum(p.stop)}</td>
+      <td class="${(p.unrealized||0) >= 0 ? "up" : "down"}">${p.unrealized == null ? "—" : (p.unrealized >= 0 ? "+" : "") + p.unrealized.toFixed(2)}</td>
+      <td style="color:var(--ink-2)">${p.strategy}</td>
+      <td><button class="small" onclick="closePos('${p.symbol}')">Close</button></td>
+    </tr>`).join("");
+  $("posEmpty").style.display = s.positions.length ? "none" : "";
+
+  // trades
+  const tb = $("tradeTable").querySelector("tbody");
+  tb.innerHTML = s.trades.map(t => `
+    <tr>
+      <td style="color:var(--ink-2)">${fmtTime(t.ts)}</td>
+      <td>${t.symbol.split(":")[0]}</td>
+      <td class="side-${t.side}">${t.side.toUpperCase()}</td>
+      <td>${fmtNum(t.entry)}</td>
+      <td>${fmtNum(t.exit)}</td>
+      <td class="${t.pnl >= 0 ? "up" : "down"}">${(t.pnl >= 0 ? "+" : "") + t.pnl.toFixed(2)}</td>
+      <td style="color:var(--ink-2)">${t.strategy}</td>
+      <td style="color:var(--muted)">${t.reason}</td>
+    </tr>`).join("");
+  $("tradeEmpty").style.display = s.trades.length ? "none" : "";
+
+  // logs
+  $("logs").innerHTML = s.logs.map(l =>
+    `<div class="${l.level}"><span class="ts">${fmtTime(l.ts)}</span>${l.msg}</div>`).join("");
+
+  drawChart(s.equity_curve);
+}
+
+// ------------------------------------------------------------ equity chart
+let chartPts = [];
+function drawChart(curve) {
+  const svg = $("chart");
+  const W = svg.clientWidth || 600, H = 240;
+  const padL = 56, padR = 12, padT = 12, padB = 24;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (!curve || curve.length < 2) {
+    svg.innerHTML = `<text x="${W/2}" y="${H/2}" fill="${cssVar('--muted')}" font-size="13" text-anchor="middle">Equity history appears once the bot runs.</text>`;
+    chartPts = [];
+    return;
+  }
+  const xs = curve.map(d => d.ts), ys = curve.map(d => d.equity);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (y1 - y0 < 1e-9) { y0 -= 1; y1 += 1; }
+  const pad = (y1 - y0) * 0.08; y0 -= pad; y1 += pad;
+  const X = t => padL + (t - x0) / (x1 - x0 || 1) * (W - padL - padR);
+  const Y = v => padT + (1 - (v - y0) / (y1 - y0)) * (H - padT - padB);
+
+  let out = "";
+  const ticks = 4;
+  const cGrid = cssVar('--grid'), cMuted = cssVar('--muted'), cLine = cssVar('--series-1');
+  for (let i = 0; i <= ticks; i++) {
+    const v = y0 + (y1 - y0) * i / ticks, y = Y(v);
+    out += `<line x1="${padL}" x2="${W - padR}" y1="${y}" y2="${y}" stroke="${cGrid}" stroke-width="1"/>`;
+    out += `<text x="${padL - 8}" y="${y + 4}" fill="${cMuted}" font-size="11" text-anchor="end">${Math.round(v).toLocaleString()}</text>`;
+  }
+  for (let i = 0; i <= 3; i++) {
+    const t = x0 + (x1 - x0) * i / 3;
+    out += `<text x="${X(t)}" y="${H - 6}" fill="${cMuted}" font-size="11" text-anchor="${i === 0 ? "start" : i === 3 ? "end" : "middle"}">${fmtTime(t)}</text>`;
+  }
+  chartPts = curve.map(d => ({x: X(d.ts), y: Y(d.equity), ts: d.ts, v: d.equity}));
+  const path = chartPts.map((p, i) => (i ? "L" : "M") + p.x.toFixed(1) + " " + p.y.toFixed(1)).join("");
+  out += `<path d="${path}" fill="none" stroke="${cLine}" stroke-width="2" stroke-linejoin="round"/>`;
+  out += `<g id="hoverLayer"></g>`;
+  svg.innerHTML = out;
+}
+
+const wrap = $("chartwrap"), tip = $("tooltip");
+wrap.addEventListener("mousemove", e => {
+  if (!chartPts.length) return;
+  const svg = $("chart");
+  const r = svg.getBoundingClientRect();
+  const mx = (e.clientX - r.left) * (svg.viewBox.baseVal.width / r.width);
+  let best = chartPts[0];
+  for (const p of chartPts) if (Math.abs(p.x - mx) < Math.abs(best.x - mx)) best = p;
+  const layer = svg.querySelector("#hoverLayer");
+  if (layer) layer.innerHTML =
+    `<line x1="${best.x}" x2="${best.x}" y1="12" y2="216" stroke="${cssVar('--baseline')}" stroke-width="1"/>` +
+    `<circle cx="${best.x}" cy="${best.y}" r="4" fill="${cssVar('--series-1')}" stroke="${cssVar('--surface')}" stroke-width="2"/>`;
+  tip.style.display = "block";
+  tip.innerHTML = `<span class="t">${fmtTime(best.ts)}</span><br><b>${fmtUsd(best.v)}</b>`;
+  const left = Math.min(best.x / (svg.viewBox.baseVal.width) * r.width + 12, r.width - 130);
+  tip.style.left = left + "px";
+  tip.style.top = (best.y / 240 * r.height - 10) + "px";
+});
+wrap.addEventListener("mouseleave", () => {
+  tip.style.display = "none";
+  const layer = $("chart").querySelector("#hoverLayer");
+  if (layer) layer.innerHTML = "";
+});
+
+// ------------------------------------------------------------ forms
+function fillForms() {
+  const cfg = state.config;
+  const ex = $("exchange");
+  ex.innerHTML = Object.entries(state.exchanges).map(([id, name]) =>
+    `<option value="${id}" ${id === cfg.exchange ? "selected" : ""}>${name}</option>`).join("");
+  const st = $("strategy");
+  st.innerHTML = Object.entries(state.strategies).map(([id, name]) =>
+    `<option value="${id}" ${id === cfg.strategy ? "selected" : ""}>${name}</option>`).join("");
+  $("mode").value = cfg.mode;
+  $("studentId").value = cfg.student_id || "";
+  $("slowToggle").checked = !!cfg.slow_mode;
+  $("derivToggle").checked = cfg.derivatives !== false;
+  syncSwitchStates();
+  $("exchangeNote").innerHTML = cfg.derivatives !== false
+    ? 'The bot trades <b>ANDX derivatives</b> — real longs <b>and shorts</b> with leverage (set by the "Max leverage" risk field), stops enforced by the exchange. Only the API key and secret are needed.'
+    : 'The bot trades <b>ANDX spot</b> — long/flat: it buys coins on long signals and sells back to USDT on exits. Flip the ⚡ Derivatives switch for real shorts with leverage.';
+  $("symbols").value = cfg.symbols.join(", ");
+  $("timeframe").value = cfg.timeframe;
+  $("paperBalance").value = cfg.paper_balance;
+  $("rRisk").value = cfg.risk.risk_per_trade_pct;
+  $("rStop").value = cfg.risk.atr_stop_mult;
+  $("rLev").value = cfg.risk.max_leverage;
+  $("rMaxPos").value = cfg.risk.max_open_positions;
+  $("rMaxPct").value = cfg.risk.max_position_pct;
+  $("rDaily").value = cfg.risk.daily_loss_limit_pct;
+  if (state.saved_key) updateKeyStatus("Saved key: " + state.saved_key, true);
+  else { const el = $("keyStatus"); el.textContent = "No API keys saved for this exchange (fine for paper mode)."; el.className = "keystatus neutral"; }
+  updateStratHint();
+}
+
+const HINTS = {
+  auto: "Recommended. Measures trend strength (ADX) and runs trend-following in trending markets, mean-reversion in ranging ones — research shows the regime decides which family wins.",
+  ema_trend: "Best-documented edge in crypto. EMA 21/55 crossover with ADX filter, ATR trailing stop. Longs uptrends, shorts downtrends.",
+  rsi_meanrev: "For ranging markets: buys oversold at the lower Bollinger band, shorts overbought at the upper. Backtests show ~74% win rates in ranges, but it sits out strong trends.",
+  donchian: "Turtle-style momentum: enters on 20-bar breakouts either direction, exits on the opposite 10-bar channel.",
+};
+function updateStratHint() { $("stratHint").textContent = HINTS[$("strategy").value] || ""; }
+$("strategy").addEventListener("change", updateStratHint);
+
+function updateKeyStatus(msg, ok) {
+  const el = $("keyStatus");
+  el.textContent = msg;
+  el.className = "keystatus " + (ok ? "ok" : "err");
+}
+
+$("exchange").addEventListener("change", async () => {
+  await saveSettings(false);
+  firstLoad = true; await refresh();
+});
+
+async function saveSettings(announce = true) {
+  const body = {
+    exchange: $("exchange").value,
+    mode: $("mode").value,
+    student_id: $("studentId").value,
+    strategy: $("strategy").value,
+    symbols: $("symbols").value.split(","),
+    timeframe: $("timeframe").value,
+    paper_balance: +$("paperBalance").value || 10000,
+    risk: {
+      risk_per_trade_pct: +$("rRisk").value,
+      atr_stop_mult: +$("rStop").value,
+      max_leverage: +$("rLev").value,
+      max_open_positions: +$("rMaxPos").value,
+      max_position_pct: +$("rMaxPct").value,
+      daily_loss_limit_pct: +$("rDaily").value,
+    },
+  };
+  const r = await api("/api/settings", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  if (announce) {
+    const el = $("settingsStatus");
+    el.textContent = r.ok ? "Saved." : (r.detail || "Failed.");
+    el.className = "keystatus " + (r.ok ? "ok" : "err");
+    setTimeout(() => { el.textContent = ""; }, 4000);
+  }
+  return r.ok;
+}
+$("btnSaveSettings").addEventListener("click", () => saveSettings());
+
+$("btnResetPaper").addEventListener("click", async () => {
+  if (!confirm("Reset the practice account? Balance returns to the configured paper balance and open practice positions are forgotten. Trade history is kept.")) return;
+  const r = await api("/api/reset_paper", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+  if (!r.ok && r.detail) alert(r.detail);
+  refresh();
+});
+
+function syncSwitchStates() {
+  $("derivState").textContent = $("derivToggle").checked ? "ON" : "OFF";
+  $("slowState").textContent = $("slowToggle").checked ? "ON" : "OFF";
+}
+
+$("slowToggle").addEventListener("change", async e => {
+  syncSwitchStates();
+  await api("/api/slow_mode", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({on: e.target.checked})});
+  refresh();
+});
+
+$("derivToggle").addEventListener("change", async e => {
+  const toDeriv = e.target.checked;
+  const msg = toDeriv
+    ? "Switch to DERIVATIVES trading? All open spot positions will be closed at market first."
+    : "Switch to SPOT trading? All open derivative positions will be closed at market first.";
+  if (!confirm(msg)) { e.target.checked = !toDeriv; syncSwitchStates(); return; }
+  syncSwitchStates();
+  await api("/api/market_mode", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({derivatives: toDeriv})});
+  firstLoad = true; refresh();
+});
+
+$("btnSaveKeys").addEventListener("click", async () => {
+  updateKeyStatus("Testing keys against the exchange…", true);
+  const r = await api("/api/keys", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      exchange: $("exchange").value,
+      api_key: $("apiKey").value,
+      api_secret: $("apiSecret").value,
+    })});
+  updateKeyStatus(r.detail || (r.ok ? "Saved." : "Failed."), r.ok);
+  if (r.ok) { $("apiKey").value = ""; $("apiSecret").value = ""; }
+});
+
+$("btnDeleteKeys").addEventListener("click", async () => {
+  await fetch("/api/keys?exchange=" + $("exchange").value, {method: "DELETE"});
+  updateKeyStatus("Keys removed.", true);
+});
+
+$("btnStart").addEventListener("click", async () => {
+  await saveSettings(false);
+  let body = {};
+  if ($("mode").value === "live") {
+    if (!confirm("Start LIVE trading with real money? The bot will open and close leveraged positions on your account.")) return;
+    body.confirm_live = true;
+  }
+  const r = await api("/api/start", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)});
+  if (!r.ok && r.detail) alert(r.detail);
+  refresh();
+});
+$("btnStop").addEventListener("click", async () => { await api("/api/stop", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"}); refresh(); });
+$("btnFlatten").addEventListener("click", async () => {
+  if (!confirm("Stop the bot and close ALL open positions at market?")) return;
+  await api("/api/stop", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({flatten: true})});
+  refresh();
+});
+async function closePos(symbol) {
+  if (!confirm("Close " + symbol + " at market?")) return;
+  await api("/api/close", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({symbol})});
+  refresh();
+}
+
+// ------------------------------------------------------------ code editor
+async function loadCode() {
+  const r = await api("/api/code");
+  if (r.ok) { $("codeArea").value = r.code; codeLoaded = true; }
+  else { $("codeStatus").textContent = r.detail || "Could not load code."; $("codeStatus").className = "keystatus err"; }
+}
+function codeStatus(msg, ok) {
+  const el = $("codeStatus");
+  el.textContent = msg;
+  el.className = "keystatus " + (ok ? "ok" : "err");
+}
+$("btnSaveCode").addEventListener("click", async () => {
+  codeStatus("Checking your code…", true);
+  const r = await api("/api/code", {method: "POST", headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({code: $("codeArea").value})});
+  if (r.ok) codeStatus(r.applied ? "✓ Saved and applied — your bot is now running your code."
+                                 : "✓ Saved. Press Start bot to run it.", true);
+  else codeStatus("✗ " + (r.detail || "Save failed."), false);
+  refresh();
+});
+$("btnReloadCode").addEventListener("click", () => { codeLoaded = false; loadCode(); codeStatus("Reloaded from file.", true); });
+$("btnRestoreCode").addEventListener("click", async () => {
+  if (!confirm("Restore the original strategy code? Your changes to the file will be replaced.")) return;
+  const r = await api("/api/code/restore", {method: "POST", headers: {"Content-Type": "application/json"}, body: "{}"});
+  if (r.ok) { codeLoaded = false; await loadCode(); codeStatus("Original strategy restored.", true); }
+  else codeStatus("✗ " + (r.detail || "Restore failed."), false);
+  refresh();
+});
+// Tab key inserts 4 spaces instead of leaving the editor (Python needs indent)
+$("codeArea").addEventListener("keydown", e => {
+  if (e.key === "Tab") {
+    e.preventDefault();
+    const el = e.target, s = el.selectionStart, en = el.selectionEnd;
+    el.value = el.value.slice(0, s) + "    " + el.value.slice(en);
+    el.selectionStart = el.selectionEnd = s + 4;
+  }
+});
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
