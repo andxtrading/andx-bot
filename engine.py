@@ -239,6 +239,12 @@ class BotEngine:
                     self.status = "stopped"
                     return False, f"could not list ANDX pairs: {e}"
 
+            # Normalize bare tickers a student may type ("BTC" -> "BTC/USDT").
+            if is_andx:
+                import andx as _andx
+                cfg = dict(cfg)
+                cfg["symbols"] = [_andx.normalize_symbol(x) for x in cfg["symbols"]]
+
             # Rank the universe by tradability (ATR% vs spread; flat-bar and
             # dead/wild-volatility rejects) and keep only the best pairs —
             # polling thin, flat, wide-spread instruments is how the rate
