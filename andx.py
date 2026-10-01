@@ -41,6 +41,18 @@ def market_code(symbol: str) -> str:
     return symbol.split(":")[0].replace("/", "").upper()
 
 
+def normalize_symbol(symbol: str) -> str:
+    """Accept loose user input and return canonical 'BASE/USDT'.
+    'BTC'/'btc' -> 'BTC/USDT', 'BTCUSDT' -> 'BTC/USDT', 'BTC/USDT' and
+    'BTC/USDT:USDT' pass through, 'ALL' is left alone."""
+    s = (symbol or "").strip().upper()
+    if not s or s == "ALL" or "/" in s:
+        return s
+    if s.endswith("USDT") and len(s) > 4:
+        return s[:-4] + "/USDT"
+    return s + "/USDT"
+
+
 class AndxClient:
     def __init__(self, api_key="", api_secret="", **_ignored):
         self.api_key = api_key
