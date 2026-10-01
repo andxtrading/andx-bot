@@ -28,7 +28,7 @@ PAPER_SLIPPAGE = 0.0003
 
 def _make_client(exchange_id: str, creds: dict | None = None, testnet: bool = False):
     if ccxt is None:
-        raise RuntimeError("ccxt is not installed; ANDX runs without it")
+        raise RuntimeError("no market-data source for this symbol (check it is a valid ANDX pair, e.g. BTC/USDT)")
     cls = getattr(ccxt, exchange_id)
     cfg = {"enableRateLimit": True, "options": {"defaultType": "swap"}}
     if creds:
