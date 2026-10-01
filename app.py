@@ -68,7 +68,8 @@ def save_settings():
     if "student_id" in body:
         cfg["student_id"] = str(body["student_id"]).strip()
     if "symbols" in body:
-        symbols = [s.strip() for s in body["symbols"] if s.strip()]
+        import andx
+        symbols = [andx.normalize_symbol(s) for s in body["symbols"] if s.strip()]
         if symbols:
             cfg["symbols"] = symbols
     if "paper_balance" in body:
