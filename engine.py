@@ -146,7 +146,15 @@ class BotEngine:
                     if is_andx:
                         if cfg.get("derivatives", False):
                             lev = int(float(cfg.get("risk", {}).get("max_leverage", 2) or 2))
-                            self.broker = AndxMarginBroker(creds, leverage=lev)
+                            try:
+                                self.broker = AndxMarginBroker(creds, leverage=lev)
+                            except Exception as de:
+                                if "derivative" in str(de).lower() or "limit group" in str(de).lower():
+                                    self.log("Your ANDX account is not enabled for derivatives - running in spot mode instead.", "warn")
+                                    cfg = dict(cfg); cfg["derivatives"] = False
+                                    self.broker = AndxBroker(creds)
+                                else:
+                                    raise
                         else:
                             self.broker = AndxBroker(creds)
                     else:
